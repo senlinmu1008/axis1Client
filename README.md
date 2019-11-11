@@ -1,6 +1,7 @@
-# axis1Server
-基于Axis1搭建的服务端
-## Maven导包
+# axis1Client
+基于Axis1搭建的客户端
+
+## 导包
 
 ```xml
 <dependency>
@@ -30,85 +31,86 @@
 </dependency>
 ```
 
-## 在web.xml中配置axis监听器
-
-```xml
-<servlet>
-    <servlet-name>AxisServlet</servlet-name>
-    <servlet-class>org.apache.axis.transport.http.AxisServlet</servlet-class>
-</servlet>
-<servlet-mapping>
-    <servlet-name>AxisServlet</servlet-name>
-    <url-pattern>/v1/*</url-pattern>
-</servlet-mapping>
-```
-
-## 创建前置接收请求的类
+## 简单类型调用
 
 ```Java
 @Slf4j
-public class Dispatcher {
-    // 简单类型调用
-    public String sum(String num1, String num2) {
-        log.info("参数1:[{}]", num1);
-        log.info("参数2:[{}]", num2);
+public class SimpleTestCase {
+    @Test
+    @SneakyThrows
+    public void testAxis1Simple() {
+        // http://ip:port/contextPath/url-pattern/serviceName?wsdl
+        String webServiceUrl = "http://127.0.0.1:8080/axisServer/v1/call?wsdl";
+        String sum = callSimpleType(webServiceUrl, "sum", new Object[]{"123", "456"});
 
-        return Integer.parseInt(num1) + Integer.parseInt(num2) + "";
+        log.info("求和结果:[{}]", sum);
     }
 
-    // 复杂类型调用
-    public CommonDTO acceptInfo(CommonDTO commonDTO) {
-        log.info(JSON.toJSONString(commonDTO, true));
+    private String callSimpleType(String webServiceUrl, String methodName, Object[] objects) throws ServiceException, RemoteException {
+        Service service = new Service();
+        Call call = (Call) service.createCall();
 
-        commonDTO.setServerFlag(true);
-        return commonDTO;
+        call.setTimeout(30000); // 设置超时
+        call.setOperationName(new QName(methodName)); // 设置调用方法名
+        call.setTargetEndpointAddress(webServiceUrl); // 设置调用的url
+
+        // 执行调用,数组元素与被调用方法的参数列表一一对应，参数可以少传（需要为引用类型按null处理）但不能多传
+        return call.invoke(objects).toString();
     }
+
 }
 ```
 
-## 创建对象传参的DTO(server和client共用)
+## 复杂类型调用
 
 ```Java
-@Data
-public class CommonDTO {
-    private String company;
-    private Integer type;
-    private List<String> managerList;
-    private Boolean serverFlag; // 是否为服务端
+@Slf4j
+public class ComplexTestCase {
+    @Test
+    @SneakyThrows
+    public void testAxis1Complex() {
+        // http://ip:port/contextPath/url-pattern/serviceName?wsdl
+        String webServiceUrl = "http://127.0.0.1:8080/axisServer/v1/call?wsdl";
+
+        CommonDTO requestDTO = new CommonDTO();
+        requestDTO.setCompany("ABC");
+        requestDTO.setType(123);
+        requestDTO.setServerFlag(false);
+        List<String> managerList = new ArrayList<>();
+        managerList.add("张三");
+        managerList.add("李四");
+        managerList.add("王五");
+        requestDTO.setManagerList(managerList);
+
+        CommonDTO responseDTO = callComplexType(webServiceUrl, "acceptInfo", requestDTO);
+
+        log.info(JSON.toJSONString(responseDTO, true));
+    }
+
+    private CommonDTO callComplexType(String webServiceUrl, String methodName, CommonDTO commonDTO) throws ServiceException, RemoteException, MalformedURLException {
+        Service service = new Service();
+        Call call = (Call) service.createCall();
+
+        call.setTimeout(30000); // 设置超时
+        call.setOperationName(new QName(methodName)); // 设置调用方法名
+        call.setTargetEndpointAddress(webServiceUrl); // 设置调用的url
+
+        //注册实体对象,与server-config.wsdd中的beanMapping配置一致
+        QName qName = new QName("urn:commonDTO", "common");
+        call.registerTypeMapping(CommonDTO.class, qName,
+                new BeanSerializerFactory(CommonDTO.class, qName),
+                new BeanDeserializerFactory(CommonDTO.class, qName));
+        //设置被调用方法的形参
+        call.addParameter("arg1", qName, ParameterMode.IN);
+        //设置返回值类型
+        call.setReturnClass(CommonDTO.class);
+
+        // 执行调用
+        return (CommonDTO) call.invoke(new Object[]{commonDTO});
+    }
 }
 ```
-
-## 创建配置文件server-config.wsdd
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<deployment xmlns="http://xml.apache.org/axis/wsdd/" xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
-    <handler name="URLMapper" type="java:org.apache.axis.handlers.http.URLMapper"/>
-    <service name="call" provider="java:RPC">
-        <!--- 允许调用的方法 --->
-        <parameter name="allowedMethods" value="*"/>
-        <!--- 前置接收请求的类 --->
-        <parameter name="className" value="com.zxb.web.Dispatcher"/>
-        <!--- 传递对象 --->
-        <beanMapping qname="myNS:common" xmlns:myNS="urn:commonDTO" languageSpecificType="java:com.zxb.domain.CommonDTO"/>
-    </service>
-
-    <transport name="http">
-        <requestFlow>
-            <handler type="URLMapper"/>
-        </requestFlow>
-    </transport>
-</deployment>
-```
-
-## 启动服务
-
-url规则：`http://ip:port/contextPath/url-pattern/serviceName?wsdl`
-
-打开：`http://127.0.0.1:8080/axisServer/v1/call?wsdl`
-可以看到xml页面即为成功
 
 ## 说明
 
-1. 前置接收请求的类每次调用都会通过反射实例化一次
-2. 使用对象传参，在反序列化时给对象设置属性值是通过拼接set方法来实现，要求set方法无返回值，不要使用lombok的@Accessors注解
+1. 返回对象在反序列化时设置属性值是通过拼接set方法来实现，要求set方法无返回值，不要使用lombok的@Accessors注解
