@@ -1,8 +1,7 @@
-# axis1Client
+# Client搭建
 基于Axis1搭建的客户端
 
-## Maven导包
-
+## 1、Maven导包
 ```xml
 <dependency>
     <groupId>org.apache.axis</groupId>
@@ -31,7 +30,7 @@
 </dependency>
 ```
 
-## 简单类型调用
+## 2、简单类型调用
 
 ```Java
 @Slf4j
@@ -61,7 +60,7 @@ public class SimpleTestCase {
 }
 ```
 
-## 复杂类型调用
+## 3、复杂类型调用
 
 ```Java
 @Slf4j
@@ -113,4 +112,7 @@ public class ComplexTestCase {
 
 ## 说明
 
-1. 返回对象在反序列化时设置属性值是通过拼接set方法来实现，要求set方法无返回值，不要使用lombok的@Accessors注解
+1. 返回对象在反序列化时设置属性值是通过拼接set方法来实现，要求set方法无返回值，不要使用lombok的@Accessors注解。
+2. 代码地址：
+    * github：https://github.com/senlinmu1008/axis1Client
+    * gitee：https://gitee.com/ppbin/axis1Client
