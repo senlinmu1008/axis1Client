@@ -3,7 +3,7 @@
  */
 
 import com.alibaba.fastjson.JSON;
-import com.zxb.domain.CommonDTO;
+import net.zhaoxiaobin.domain.CommonDTO;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.axis.client.Call;
